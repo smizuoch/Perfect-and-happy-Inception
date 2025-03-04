@@ -1,7 +1,28 @@
 #!/bin/bash
 
 # データディレクトリが空の場合はデータベースを初期化
-if [ ! -d "/var/lib/mysql/mysql" ]; then
+# ディレクトリの有無をログ出力
+echo "Checking if /var/lib/mysql/mysql exists..."
+if [ -d "/var/lib/mysql/mysql" ]; then
+    echo "MariaDB database directory exists, skipping initialization."
+else
+    echo "MariaDB database directory not found. Initializing..."
+    
+    # mysql_install_dbを条件分岐の中に移動
+    mysql_install_db --user=mysql --datadir=/var/lib/mysql
+    
+    # 権限を確実に設定
+    chown -R mysql:mysql /var/lib/mysql
+    
+    # MariaDBを起動
+    echo "Starting temporary MariaDB server for initialization..."
+    mysqld --user=mysql --bootstrap &
+    MYSQL_PID=$!
+    
+    # サーバーが起動するのを待つ
+    echo "Waiting for MariaDB to be ready..."
+    # 残りの初期化処理
+    # ...
     echo "Initializing MariaDB database..."
     
     # データベースの初期化
@@ -44,7 +65,7 @@ else
     echo "MariaDB database already initialized."
 fi
 
-mysql_install_db --user=mysql --datadir=/var/lib/mysql
+# mysql_install_db --user=mysql --datadir=/var/lib/mysql
 
 # 権限を確実に設定
 chown -R mysql:mysql /var/lib/mysql

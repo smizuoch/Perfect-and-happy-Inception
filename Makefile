@@ -11,7 +11,9 @@ down:
 	@docker compose -f ./srcs/compose.yml down
 
 env:
-	@git clone https://github.com/smizuoch/inception_env.git ./srcs
+	@git clone https://github.com/smizuoch/inception_env.git ./srcs/env
+	@cp ./srcs/env/.env ./srcs/.env
+	@rm -rf ./srcs/env
 
 resolve:
 	sudo cp

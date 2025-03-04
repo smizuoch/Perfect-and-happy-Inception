@@ -5,7 +5,7 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     echo "Initializing MariaDB database..."
     
     # データベースの初期化
-    mysql_install_db --user=mysql --datadir=/var/lib/mysql
+    # mysql_install_db --user=mysql --datadir=/var/lib/mysql
     
     # MariaDBを起動
     /usr/bin/mysqld_safe --datadir=/var/lib/mysql &
@@ -43,6 +43,8 @@ EOF
 else
     echo "MariaDB database already initialized."
 fi
+
+mysql_install_db --user=mysql --datadir=/var/lib/mysql
 
 # 権限を確実に設定
 chown -R mysql:mysql /var/lib/mysql

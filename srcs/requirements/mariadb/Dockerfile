@@ -12,7 +12,7 @@ COPY ./conf/50-server.cnf /etc/mysql/mariadb.conf.d/
 # データベース初期化スクリプトをコピー
 COPY ./tools/init-db.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-db.sh && \
-    envsubst < /usr/local/bin/init-db.sh > /usr/local/bin/init-db.sh
+    envsubst < /usr/local/bin/init-db.sh > /usr/local/bin/init-db-tmp.sh
 
 # データディレクトリの作成と権限設定
 RUN mkdir -p /var/run/mysqld \
@@ -26,4 +26,4 @@ RUN mkdir -p /var/lib/mysql
 EXPOSE 3306
 
 # 初期化スクリプトを実行
-CMD ["init-db.sh"]
+CMD ["init-db-tmp.sh"]

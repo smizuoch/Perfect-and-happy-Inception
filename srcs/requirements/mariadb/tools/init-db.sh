@@ -4,8 +4,6 @@
 # ディレクトリの有無をログ出力
 echo "Checking if /var/lib/mysql/mysql exists..."
 if [ -d "/var/lib/mysql/mysql" ]; then
-    echo "MariaDB database directory exists, skipping initialization."
-else
     echo "MariaDB database directory not found. Initializing..."
     
     # mysql_install_dbを条件分岐の中に移動

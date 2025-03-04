@@ -16,12 +16,16 @@ env:
 	@rm -rf ./srcs/env
 
 resolve:
-	sudo cp
+	sudo cp /etc/hosts /etc/hosts.bak
+	sudo chmod 777 /etc/hosts
+	sudo printf "\n127.0.0.1 smizuoch.42.fr\n" >> /etc/hosts
+	sudo chmod 644 /etc/hosts
 
 re: down all
 
 clean: down
 	@docker system prune -a
+	@sudo mv /etc/hosts.bak /etc/hosts | true
 
 fclean: clean
 	@docker volume rm $$(docker volume ls -q)

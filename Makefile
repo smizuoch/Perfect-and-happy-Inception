@@ -10,6 +10,12 @@ $(NAME):
 down:
 	@docker compose -f ./srcs/compose.yml down
 
+env:
+	@git clone https://github.com/smizuoch/inception_env.git ./srcs
+
+resolve:
+	sudo cp
+
 re: down all
 
 clean: down

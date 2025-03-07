@@ -1,55 +1,94 @@
 services:
-  nginx:
-    build: ./requirements/nginx
-    container_name: nginx
-    ports:
-      - "8443:443"
+
+  # mariadb container ------------------------------------------------------------
+
+  # これは他のコンテナに依存しない唯一のコンテナなので、最初に作成されます
+  mariadb:
+    container_name: mariadb
+    build: ./requirements/mariadb/
     volumes:
-      - wordpress_data:/var/www/html
+      - database:/var/lib/mysql/
     networks:
-      - inception_network
-    restart: always
+      - all
+    init: true
+    restart: on-failure
+    env_file:
+      - .env
+
+  # wordpress container ------------------------------------------------------------
+
+  # このコンテナはmariadbコンテナに依存しているので、mariadbコンテナが作成された後に作成されます
+  wordpress:
+    container_name: wordpress
+    build: ./requirements/wordpress/
+    volumes:
+      - wordpress_files:/var/www/inception/
+    networks:
+      - all
+    init: true
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      - mariadb
+
+  # nginx container ------------------------------------------------------------
+
+  # このコンテナはwordpressコンテナに依存しているので、wordpressコンテナが作成された後に作成されます
+  # このコンテナは、wordpressコンテナが提供するファイルを提供するために使用されます
+  # このコンテナは、HTTPSを使用して通信するために設定されています
+  nginx:
+    container_name: nginx
+    build:
+      context: ./requirements/nginx/
+      args:
+        CERT_FOLDER: ${CERT_FOLDER}
+        CERTIFICATE: ${CERTIFICATE}
+        KEY: ${KEY}
+        COUNTRY: ${COUNTRY}
+        STATE: ${STATE}
+        LOCALITY: ${LOCALITY}
+        ORGANIZATION: ${ORGANIZATION}
+        UNIT: ${UNIT}
+        COMMON_NAME: ${COMMON_NAME}
+    ports:
+      - '443:443'
+    volumes:
+      - wordpress_files:/var/www/inception/
+    networks:
+      - all
+    init: true
+    restart: on-failure
+    env_file:
+      - .env
     depends_on:
       - wordpress
 
-  wordpress:
-    build: ./requirements/wordpress
-    container_name: wordpress
-    volumes:
-      - wordpress_data:/var/www/html
-    networks:
-      - inception_network
-    restart: always
-    depends_on:
-      - mariadb
-    env_file:
-      - .env
+# volumes --------------------------------------------------------------------
 
-  mariadb:
-    build: ./requirements/mariadb
-    container_name: mariadb
-    volumes:
-      - mariadb_data:/var/lib/mysql
-    networks:
-      - inception_network
-    restart: always
-    env_file:
-      - .env
+# コンテナ間で共有されるデータを保持します
+# それは、コンテナとホストマシンの間の共有ハードドライブのように機能します
+# device: データがホストマシンに保存される場所
+volumes:
+
+  # keeps the database
+  database:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ~/data/database
+
+  # keeps the wordpress files
+  wordpress_files:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ~/data/wordpress_files
+
+# networks --------------------------------------------------------------------
 
 networks:
-  inception_network:
+  all:
     driver: bridge
-
-volumes:
-  wordpress_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /home/${USER}/data/wordpress
-      o: bind
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /home/${USER}/data/mariadb
-      o: bind

@@ -1,35 +1,85 @@
-NAME = inception
+# 変数
+NAME		= inception
+SRCS		= ./srcs
+COMPOSE		= $(SRCS)/compose.yml
+HOST_URL	= smizuoch.42.fr
 
+# ルール
 all: $(NAME)
 
-$(NAME):
-	@mkdir -p /home/$(USER)/data/wordpress
-	@mkdir -p /home/$(USER)/data/mariadb
-	@docker compose -f ./srcs/compose.yml up -d --build
+$(NAME): up
 
+# ホストファイルにURLを追加し、docker composeを使ってコンテナを起動
+up: create_dir
+	@sudo hostsed add 127.0.0.1 $(HOST_URL) > $(HIDE) && echo " $(HOST_ADD)"
+	@docker compose -p $(NAME) -f $(COMPOSE) up --build || (echo " $(FAIL)" && exit 1)
+	@echo " $(UP)"
+
+# docker composeを使ってコンテナを停止
 down:
-	@docker compose -f ./srcs/compose.yml down
+	@docker compose -p $(NAME) down
+	@echo " $(DOWN)"
 
-env:
-	@git clone https://github.com/smizuoch/inception_env.git ./srcs/env
-	@cp ./srcs/env/.env ./srcs/.env
-	@rm -rf ./srcs/env
+create_dir:
+	@mkdir -p ~/data/database
+	@mkdir -p ~/data/wordpress_files
 
-resolve:
-	sudo cp /etc/hosts /etc/hosts.bak
-	sudo chmod 777 /etc/hosts
-	sudo printf "\n127.0.0.1 smizuoch.42.fr\n" >> /etc/hosts
-	sudo chmod 644 /etc/hosts
+# ホームディレクトリにあるdataフォルダのバックアップを作成
+backup:
+	@if [ -d ~/data ]; then sudo tar -czvf ~/data.tar.gz -C ~/ data/ > $(HIDE) && echo " $(BKP)" ; fi
 
-re: down all
+# コンテナを停止し、ボリュームを削除し、コンテナを削除
+clean:
+	@docker compose -f $(COMPOSE) down -v
+	@if [ -n "$$(docker ps -a --filter "name=nginx" -q)" ]; then docker rm -f nginx > $(HIDE) && echo " $(NX_CLN)" ; fi
+	@if [ -n "$$(docker ps -a --filter "name=wordpress" -q)" ]; then docker rm -f wordpress > $(HIDE) && echo " $(WP_CLN)" ; fi
+	@if [ -n "$$(docker ps -a --filter "name=mariadb" -q)" ]; then docker rm -f mariadb > $(HIDE) && echo " $(DB_CLN)" ; fi
 
-clean: down
-	@docker system prune -a
-	@sudo mv /etc/hosts.bak /etc/hosts | true
+# データをバックアップし、コンテナ、イメージ、ホストURLを削除
+fclean: clean backup
+	@sudo rm -rf ~/data
+	@if [ -n "$$(docker image ls $(NAME)-nginx -q)" ]; then docker image rm -f $(NAME)-nginx > $(HIDE) && echo " $(NX_FLN)" ; fi
+	@if [ -n "$$(docker image ls $(NAME)-wordpress -q)" ]; then docker image rm -f $(NAME)-wordpress > $(HIDE) && echo " $(WP_FLN)" ; fi
+	@if [ -n "$$(docker image ls $(NAME)-mariadb -q)" ]; then docker image rm -f $(NAME)-mariadb > $(HIDE) && echo " $(DB_FLN)" ; fi
+	@sudo hostsed rm 127.0.0.1 $(HOST_URL) > $(HIDE) && echo " $(HOST_RM)"
 
-fclean: clean
-	@docker volume rm $$(docker volume ls -q)
-	@sudo rm -rf /home/$(USER)/data/wordpress
-	@sudo rm -rf /home/$(USER)/data/mariadb
+status:
+	@clear
+	@echo "\nCONTAINERS\n"
+	@docker ps -a
+	@echo "\nIMAGES\n"
+	@docker image ls
+	@echo "\nVOLUMES\n"
+	@docker volume ls
+	@echo "\nNETWORKS\n"
+	@docker network ls --filter "name=$(NAME)_all"
+	@echo ""
 
-.PHONY: all down re clean fclean
+# すべてのコンテナ、イメージ、ボリューム、ネットワークを削除してクリーンな状態で開始
+prepare:
+	@echo "\nPreparing to start with a clean state..."
+	@echo "\nCONTAINERS STOPPED\n"
+	@if [ -n "$$(docker ps -qa)" ]; then docker stop $$(docker ps -qa) ;	fi
+	@echo "\nCONTAINERS REMOVED\n"
+	@if [ -n "$$(docker ps -qa)" ]; then docker rm $$(docker ps -qa) ; fi
+	@echo "\nIMAGES REMOVED\n"
+	@if [ -n "$$(docker images -qa)" ]; then docker rmi -f $$(docker images -qa) ; fi
+	@echo "\nVOLUMES REMOVED\n"
+	@if [ -n "$$(docker volume ls -q)" ]; then docker volume rm $$(docker volume ls -q) ; fi
+	@echo "\nNETWORKS REMOVED\n"
+	@if [ -n "$$(docker network ls -q) " ]; then docker network rm $$(docker network ls -q) 2> /dev/null || true ; fi 
+	@echo ""
+
+re: fclean all
+
+#review command
+start: 
+	docker compose -f $(COMPOSE) start
+
+stop:
+	docker compose -f $(COMPOSE) stop
+
+logs:
+	docker compose -f $(COMPOSE) logs
+
+.PHONY: all up down create_dir clean fclean status backup prepare re

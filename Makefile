@@ -82,4 +82,8 @@ stop:
 logs:
 	docker compose -f $(COMPOSE) logs
 
+# .env
+env:
+	@curl -s https://raw.githubusercontent.com/smizuoch/inception_env/main/.env > ./srcs/.env
+
 .PHONY: all up down create_dir clean fclean status backup prepare re

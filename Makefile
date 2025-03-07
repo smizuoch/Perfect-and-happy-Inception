@@ -2,7 +2,7 @@
 
 NAME		= inception
 SRCS		= ./srcs
-COMPOSE		= $(SRCS)/compose.yml
+COMPOSE		= $(SRCS)/docker-compose.yml
 HOST_URL	= smizuoch.42.fr
 
 # ルール ---------------------------------------------------------------------
@@ -23,8 +23,8 @@ down:
 	@echo " $(DOWN)"
 
 create_dir:
-	@mkdir -p ~/data/database
-	@mkdir -p ~/data/wordpress_files
+	@mkdir -p ${HOME}/data/database
+	@mkdir -p ${HOME}/data/wordpress_files
 
 # データフォルダのバックアップをホームディレクトリに作成する
 backup:
@@ -88,6 +88,18 @@ logs:
 env:
 	@curl -s https://raw.githubusercontent.com/smizuoch/inception_env/main/.env > ./srcs/.env
 
+
+bals:
+	# すべてのコンテナを停止
+	docker stop `docker ps -qa`
+	# すべてのコンテナを削除
+	docker rm `docker ps -qa`
+	# すべてのイメージを削除
+	docker rmi `docker images -qa`
+	# すべてのボリュームを削除
+	docker volume rm `docker volume ls -q`
+	# すべてのネットワークを削除
+	docker network rm `docker network ls -q`
 
 # カスタム設定 ----------------------------------------------------------------
 

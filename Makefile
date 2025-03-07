@@ -3,6 +3,30 @@ NAME		= inception
 SRCS		= ./srcs
 COMPOSE		= $(SRCS)/compose.yml
 HOST_URL	= smizuoch.42.fr
+HIDE		= /dev/null
+
+# メッセージ定義
+HOST_ADD	= "$(HOST_URL) をホストファイルに追加しました"
+FAIL		= "Docker Compose の起動に失敗しました"
+UP		= "コンテナが正常に起動しました"
+DOWN		= "コンテナを停止しました"
+BKP		= "データのバックアップを作成しました"
+NX_CLN		= "Nginx コンテナを削除しました"
+WP_CLN		= "WordPress コンテナを削除しました"
+DB_CLN		= "MariaDB コンテナを削除しました"
+NX_FLN		= "Nginx イメージを削除しました"
+WP_FLN		= "WordPress イメージを削除しました"
+DB_FLN		= "MariaDB イメージを削除しました"
+HOST_RM		= "ホストファイルから $(HOST_URL) を削除しました"
+
+# ホストファイル編集関数
+define add_host
+	grep -q "$(HOST_URL)" /etc/hosts || echo "127.0.0.1 $(HOST_URL)" | sudo tee -a /etc/hosts > /dev/null
+endef
+
+define remove_host
+	sudo sed -i '/$(HOST_URL)/d' /etc/hosts
+endef
 
 # ルール
 all: $(NAME)
@@ -11,8 +35,8 @@ $(NAME): up
 
 # ホストファイルにURLを追加し、docker composeを使ってコンテナを起動
 up: create_dir
-	@sudo hostsed add 127.0.0.1 $(HOST_URL) > $(HIDE) && echo " $(HOST_ADD)"
-	@docker compose -p $(NAME) -f $(COMPOSE) up --build || (echo " $(FAIL)" && exit 1)
+	@$(call add_host) && echo " $(HOST_ADD)"
+	@docker compose -p $(NAME) -f $(COMPOSE) up --build -d || (echo " $(FAIL)" && exit 1)
 	@echo " $(UP)"
 
 # docker composeを使ってコンテナを停止
@@ -30,7 +54,7 @@ backup:
 
 # コンテナを停止し、ボリュームを削除し、コンテナを削除
 clean:
-	@docker compose -f $(COMPOSE) down -v
+	@docker compose -p $(NAME) -f $(COMPOSE) down -v
 	@if [ -n "$$(docker ps -a --filter "name=nginx" -q)" ]; then docker rm -f nginx > $(HIDE) && echo " $(NX_CLN)" ; fi
 	@if [ -n "$$(docker ps -a --filter "name=wordpress" -q)" ]; then docker rm -f wordpress > $(HIDE) && echo " $(WP_CLN)" ; fi
 	@if [ -n "$$(docker ps -a --filter "name=mariadb" -q)" ]; then docker rm -f mariadb > $(HIDE) && echo " $(DB_CLN)" ; fi
@@ -41,7 +65,7 @@ fclean: clean backup
 	@if [ -n "$$(docker image ls $(NAME)-nginx -q)" ]; then docker image rm -f $(NAME)-nginx > $(HIDE) && echo " $(NX_FLN)" ; fi
 	@if [ -n "$$(docker image ls $(NAME)-wordpress -q)" ]; then docker image rm -f $(NAME)-wordpress > $(HIDE) && echo " $(WP_FLN)" ; fi
 	@if [ -n "$$(docker image ls $(NAME)-mariadb -q)" ]; then docker image rm -f $(NAME)-mariadb > $(HIDE) && echo " $(DB_FLN)" ; fi
-	@sudo hostsed rm 127.0.0.1 $(HOST_URL) > $(HIDE) && echo " $(HOST_RM)"
+	@$(call remove_host) && echo " $(HOST_RM)"
 
 status:
 	@clear
@@ -59,7 +83,7 @@ status:
 prepare:
 	@echo "\nPreparing to start with a clean state..."
 	@echo "\nCONTAINERS STOPPED\n"
-	@if [ -n "$$(docker ps -qa)" ]; then docker stop $$(docker ps -qa) ;	fi
+	@if [ -n "$$(docker ps -qa)" ]; then docker stop $$(docker ps -qa) ; fi
 	@echo "\nCONTAINERS REMOVED\n"
 	@if [ -n "$$(docker ps -qa)" ]; then docker rm $$(docker ps -qa) ; fi
 	@echo "\nIMAGES REMOVED\n"
@@ -67,23 +91,23 @@ prepare:
 	@echo "\nVOLUMES REMOVED\n"
 	@if [ -n "$$(docker volume ls -q)" ]; then docker volume rm $$(docker volume ls -q) ; fi
 	@echo "\nNETWORKS REMOVED\n"
-	@if [ -n "$$(docker network ls -q) " ]; then docker network rm $$(docker network ls -q) 2> /dev/null || true ; fi 
+	@if [ -n "$$(docker network ls -q)" ]; then docker network rm $$(docker network ls -q) 2> /dev/null || true ; fi 
 	@echo ""
 
 re: fclean all
 
-#review command
+# review command
 start: 
-	docker compose -f $(COMPOSE) start
+	@docker compose -p $(NAME) -f $(COMPOSE) start
 
 stop:
-	docker compose -f $(COMPOSE) stop
+	@docker compose -p $(NAME) -f $(COMPOSE) stop
 
 logs:
-	docker compose -f $(COMPOSE) logs
+	@docker compose -p $(NAME) -f $(COMPOSE) logs
 
 # .env
 env:
 	@curl -s https://raw.githubusercontent.com/smizuoch/inception_env/main/.env > ./srcs/.env
 
-.PHONY: all up down create_dir clean fclean status backup prepare re
+.PHONY: all up down create_dir clean fclean status backup prepare re start stop logs env

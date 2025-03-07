@@ -1,42 +1,48 @@
-FROM debian:buster
+# このDockerfileは WordPressコンテナを構築するために使用されます
+# EXPOSE ポート9000はDockerにこのコンテナがこのポートを使用することを伝えるための方法です
+# ca-certificates、php7.4-fpm、php7.4-mysql、wget、tarをインストールし、設定ファイルをコピーします
+# RUN sedコマンドはpath infoを修正するためにphp.iniファイルを変更します
+# RUN wgetはコマンドラインからWordPressをインストールするために使用されるwp-cli.pharファイルをダウンロードします
+# 最後にフォルダを作成し、www-dataユーザーに権限を設定します
+# そして、WordPressをインストールするために使用されるsetup.shスクリプトを実行します
+# そしてフォアグラウンドでphp-fpm7.4サーバーを起動します
 
-# 必要なパッケージのインストール
-RUN apt-get update && apt-get install -y \
-    php7.3 \
-    php7.3-fpm \
-    php7.3-mysql \
-    php7.3-json \
-    php7.3-curl \
-    php7.3-gd \
-    php7.3-mbstring \
-    php7.3-xml \
-    php7.3-zip \
-    php7.3-soap \
-    curl \
-    mariadb-client \
-    && rm -rf /var/lib/apt/lists/*
+FROM	debian:bullseye
 
-# WordPress CLI のインストール
-RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
-    && chmod +x wp-cli.phar \
-    && mv wp-cli.phar /usr/local/bin/wp
+EXPOSE	9000
 
-# PHP-FPM の設定ファイルをコピー
-COPY ./conf/www.conf /etc/php/7.3/fpm/pool.d/
+ARG		PHPPATH=/etc/php/7.4/fpm
 
-# WordPress のセットアップスクリプトとwp-config.phpをコピー
-COPY ./conf/wp-config.php /tmp/wp-config.php
-COPY ./tools/setup-wordpress.sh /usr/local/bin/
-COPY ./tools/generate-keys.sh /usr/local/bin/
+RUN		apt update && apt install --no-install-recommends --no-install-suggests -y \
+		ca-certificates \
+		php7.4-fpm \
+		php7.4-mysql \
+		wget \
+		tar && \
+		rm -rf /var/lib/apt/lists/*
 
-RUN chmod +x /usr/local/bin/setup-wordpress.sh /usr/local/bin/generate-keys.sh
+RUN		service php7.4-fpm stop
 
-# ディレクトリを作成
-RUN mkdir -p /run/php /var/www/html
+COPY	conf/www.conf ${PHPPATH}/pool.d/
 
-WORKDIR /var/www/html
+RUN		sed -i 's/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/g' ${PHPPATH}/php.ini && \
+		sed -i "s/listen = \/run\/php\/php$PHP_VERSION_ENV-fpm.sock/listen = 9000/g" ${PHPPATH}/pool.d/www.conf && \
+		sed -i 's/;listen.mode = 0660/listen.mode = 0660/g' ${PHPPATH}/pool.d/www.conf && \
+		sed -i 's/;daemonize = yes/daemonize = no/g' ${PHPPATH}/pool.d/www.conf
 
-EXPOSE 9000
+RUN		wget --no-check-certificate https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
+		chmod +x wp-cli.phar && \
+		mv wp-cli.phar /usr/local/bin/wp
 
-# スクリプトを実行して PHP-FPM を起動
-CMD ["/usr/local/bin/setup-wordpress.sh"]
+RUN		mkdir -p /run/php/ && \
+		mkdir -p /var/run/php/ && \
+		mkdir -p /var/www/inception/
+
+RUN		chown -R www-data:www-data /var/www/inception/
+
+COPY	conf/wp-config.php /tmp/
+
+COPY	tools/setup.sh /bin/
+RUN		chmod +x /bin/setup.sh
+
+CMD		["setup.sh", "php-fpm7.4", "--nodaemonize"]

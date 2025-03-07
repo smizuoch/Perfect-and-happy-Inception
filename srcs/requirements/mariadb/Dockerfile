@@ -12,6 +12,8 @@ RUN		apt update && \
 # Set up the configuration file
 COPY	conf/50-server.cnf /etc/mysql/mariadb.conf.d/
 
+VOLUME	/var/lib/mysql/
+
 # Set up the database
 COPY	tools/setup.sh /bin/
 RUN		chmod +x /bin/setup.sh

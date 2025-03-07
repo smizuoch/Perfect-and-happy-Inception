@@ -1,23 +1,23 @@
-# Variables -------------------------------------------------------------------
+# 変数 ----------------------------------------------------------------------
 
 NAME		= inception
 SRCS		= ./srcs
 COMPOSE		= $(SRCS)/compose.yml
 HOST_URL	= smizuoch.42.fr
 
-# Rules -----------------------------------------------------------------------
+# ルール ---------------------------------------------------------------------
 
 all: $(NAME)
 
 $(NAME): up
 
-# puts the url in the host files and starts the containers trough docker compose
+# ホストファイルにURLを追加し、Docker Composeでコンテナを起動する
 up: create_dir
 	@sudo hostsed add 127.0.0.1 $(HOST_URL) > $(HIDE) && echo " $(HOST_ADD)"
 	@docker compose -p $(NAME) -f $(COMPOSE) up --build || (echo " $(FAIL)" && exit 1)
 	@echo " $(UP)"
 
-# stops the containers through docker compose
+# Docker Composeでコンテナを停止する
 down:
 	@docker compose -p $(NAME) down
 	@echo " $(DOWN)"
@@ -26,18 +26,18 @@ create_dir:
 	@mkdir -p ~/data/database
 	@mkdir -p ~/data/wordpress_files
 
-# creates a backup of the data folder in the home directory
+# データフォルダのバックアップをホームディレクトリに作成する
 backup:
 	@if [ -d ~/data ]; then sudo tar -czvf ~/data.tar.gz -C ~/ data/ > $(HIDE) && echo " $(BKP)" ; fi
 
-# stop the containers, remove the volumes and remove the containers
+# コンテナを停止し、ボリュームとコンテナを削除する
 clean:
 	@docker compose -f $(COMPOSE) down -v
 	@if [ -n "$$(docker ps -a --filter "name=nginx" -q)" ]; then docker rm -f nginx > $(HIDE) && echo " $(NX_CLN)" ; fi
 	@if [ -n "$$(docker ps -a --filter "name=wordpress" -q)" ]; then docker rm -f wordpress > $(HIDE) && echo " $(WP_CLN)" ; fi
 	@if [ -n "$$(docker ps -a --filter "name=mariadb" -q)" ]; then docker rm -f mariadb > $(HIDE) && echo " $(DB_CLN)" ; fi
 
-# backups the data and removes the containers, images and the host url from the host file
+# データをバックアップし、コンテナ、イメージ、およびホストファイルからURLを削除する
 fclean: clean backup
 	@sudo rm -rf ~/data
 	@if [ -n "$$(docker image ls $(NAME)-nginx -q)" ]; then docker image rm -f $(NAME)-nginx > $(HIDE) && echo " $(NX_FLN)" ; fi
@@ -47,34 +47,34 @@ fclean: clean backup
 
 status:
 	@clear
-	@echo "\nCONTAINERS\n"
+	@echo "\nコンテナ一覧\n"
 	@docker ps -a
-	@echo "\nIMAGES\n"
+	@echo "\nイメージ一覧\n"
 	@docker image ls
-	@echo "\nVOLUMES\n"
+	@echo "\nボリューム一覧\n"
 	@docker volume ls
-	@echo "\nNETWORKS\n"
+	@echo "\nネットワーク一覧\n"
 	@docker network ls --filter "name=$(NAME)_all"
 	@echo ""
 
-# remove all containers, images, volumes and networks to start with a clean state
+# クリーンな状態で始めるために全てのコンテナ、イメージ、ボリューム、ネットワークを削除する
 prepare:
-	@echo "\nPreparing to start with a clean state..."
-	@echo "\nCONTAINERS STOPPED\n"
+	@echo "\n初期状態にクリーニングします...\n"
+	@echo "\nコンテナを停止中...\n"
 	@if [ -n "$$(docker ps -qa)" ]; then docker stop $$(docker ps -qa) ;	fi
-	@echo "\nCONTAINERS REMOVED\n"
+	@echo "\nコンテナを削除中...\n"
 	@if [ -n "$$(docker ps -qa)" ]; then docker rm $$(docker ps -qa) ; fi
-	@echo "\nIMAGES REMOVED\n"
+	@echo "\nイメージを削除中...\n"
 	@if [ -n "$$(docker images -qa)" ]; then docker rmi -f $$(docker images -qa) ; fi
-	@echo "\nVOLUMES REMOVED\n"
+	@echo "\nボリュームを削除中...\n"
 	@if [ -n "$$(docker volume ls -q)" ]; then docker volume rm $$(docker volume ls -q) ; fi
-	@echo "\nNETWORKS REMOVED\n"
+	@echo "\nネットワークを削除中...\n"
 	@if [ -n "$$(docker network ls -q) " ]; then docker network rm $$(docker network ls -q) 2> /dev/null || true ; fi 
 	@echo ""
 
 re: fclean all
 
-#review command
+# レビュー用コマンド
 start: 
 	docker compose -f ./srcs/docker-compose.yml start
 
@@ -84,7 +84,12 @@ stop:
 logs:
 	docker compose -f ./srcs/docker-compose.yml logs
 
-# Customs ----------------------------------------------------------------------
+# envファイルをダウンロードする
+env:
+	@curl -s https://raw.githubusercontent.com/smizuoch/inception_env/main/.env > ./srcs/.env
+
+
+# カスタム設定 ----------------------------------------------------------------
 
 HIDE		= /dev/null 2>&1
 
@@ -93,32 +98,32 @@ GREEN		= \033[0;32m
 RESET		= \033[0m
 
 MARK		= $(GREEN)✔$(RESET)
-ADDED		= $(GREEN)Added$(RESET)
-REMOVED		= $(GREEN)Removed$(RESET)
-STARTED		= $(GREEN)Started$(RESET)
-STOPPED		= $(GREEN)Stopped$(RESET)
-CREATED		= $(GREEN)Created$(RESET)
-EXECUTED	= $(GREEN)Executed$(RESET)
+ADDED		= $(GREEN)追加しました$(RESET)
+REMOVED		= $(GREEN)削除しました$(RESET)
+STARTED		= $(GREEN)起動しました$(RESET)
+STOPPED		= $(GREEN)停止しました$(RESET)
+CREATED		= $(GREEN)作成しました$(RESET)
+EXECUTED	= $(GREEN)実行しました$(RESET)
 
-# Messages --------------------------------------------------------------------
+# メッセージ -----------------------------------------------------------------
 
 UP			= $(MARK) $(NAME)		$(EXECUTED)
 DOWN		= $(MARK) $(NAME)		$(STOPPED)
-FAIL		= $(RED)✔$(RESET) $(NAME)		$(RED)Failed$(RESET)
+FAIL		= $(RED)✔$(RESET) $(NAME)		$(RED)失敗しました$(RESET)
 
-HOST_ADD	= $(MARK) Host $(HOST_URL)		$(ADDED)
-HOST_RM		= $(MARK) Host $(HOST_URL)		$(REMOVED)
+HOST_ADD	= $(MARK) ホスト $(HOST_URL)		$(ADDED)
+HOST_RM		= $(MARK) ホスト $(HOST_URL)		$(REMOVED)
 
-NX_CLN		= $(MARK) Container nginx		$(REMOVED)
-WP_CLN		= $(MARK) Container wordpress		$(REMOVED)
-DB_CLN		= $(MARK) Container mariadb		$(REMOVED)
+NX_CLN		= $(MARK) コンテナ nginx		$(REMOVED)
+WP_CLN		= $(MARK) コンテナ wordpress		$(REMOVED)
+DB_CLN		= $(MARK) コンテナ mariadb		$(REMOVED)
 
-NX_FLN		= $(MARK) Image $(NAME)-nginx	$(REMOVED)
-WP_FLN		= $(MARK) Image $(NAME)-wordpress	$(REMOVED)
-DB_FLN		= $(MARK) Image $(NAME)-mariadb	$(REMOVED)
+NX_FLN		= $(MARK) イメージ $(NAME)-nginx	$(REMOVED)
+WP_FLN		= $(MARK) イメージ $(NAME)-wordpress	$(REMOVED)
+DB_FLN		= $(MARK) イメージ $(NAME)-mariadb	$(REMOVED)
 
-BKP			= $(MARK) Backup at $(HOME)	$(CREATED)
+BKP			= $(MARK) バックアップ $(HOME)	$(CREATED)
 
-# Phony -----------------------------------------------------------------------
+# ターゲット ---------------------------------------------------------------
 
 .PHONY: all up down create_dir clean fclean status backup prepare re
